@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_db, init_db, TYPE_LABELS, ORDER_STATUS_LABELS, fetch_products, fetch_product
 
