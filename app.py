@@ -7,27 +7,32 @@ from db import get_db, init_db, TYPE_LABELS, ORDER_STATUS_LABELS, fetch_products
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'fallback-dev-key-123')
 
+# Run database setup safely
 with app.app_context():
     init_db()
     conn = get_db()
     database_url = os.environ.get('DATABASE_URL')
     
-    if database_url:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cursor.execute("SELECT * FROM users WHERE username = %s", ('admin',))
-    else:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", ('admin',))
-        
-    if not cursor.fetchone():
-        hashed_pw = generate_password_hash('admin123')
+    try:
         if database_url:
-            cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", ('admin', hashed_pw, 'ADMIN'))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cursor.execute("SELECT * FROM users WHERE username = %s", ('admin',))
         else:
-            cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('admin', hashed_pw, 'ADMIN'))
-        conn.commit()
-    cursor.close()
-    conn.close()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE username = ?", ('admin',))
+            
+        if not cursor.fetchone():
+            hashed_pw = generate_password_hash('admin123')
+            if database_url:
+                cursor.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", ('admin', hashed_pw, 'ADMIN'))
+            else:
+                cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('admin', hashed_pw, 'ADMIN'))
+            conn.commit()
+        cursor.close()
+    except Exception as e:
+        print(f"Database startup layout exception: {e}")
+    finally:
+        conn.close()
 
 @app.route('/')
 def index():
@@ -45,20 +50,24 @@ def login():
         conn = get_db()
         database_url = os.environ.get('DATABASE_URL')
         
-        if database_url:
-            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cursor.execute("SELECT id, username, password, role FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            if user:
-                user = dict(user)
-        else:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-            row = cursor.fetchone()
-            user = dict(row) if row else None
-            
-        cursor.close()
-        conn.close()
+        try:
+            if database_url:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                cursor.execute("SELECT id, username, password, role FROM users WHERE username = %s", (username,))
+                user = cursor.fetchone()
+                if user:
+                    user = dict(user)
+            else:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+                row = cursor.fetchone()
+                user = dict(row) if row else None
+            cursor.close()
+        except Exception as e:
+            user = None
+            print(f"Login select error: {e}")
+        finally:
+            conn.close()
         
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
