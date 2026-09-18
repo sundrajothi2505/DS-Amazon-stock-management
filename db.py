@@ -29,11 +29,17 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row
         return conn
 
+# Create an alias so files looking for 'get_db' don't crash
+get_db = get_db_connection
+
+def close_db(e=None):
+    # Placeholder to prevent import crashes if called elsewhere
+    pass
+
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Check if we are using PostgreSQL (Supabase) or SQLite
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
