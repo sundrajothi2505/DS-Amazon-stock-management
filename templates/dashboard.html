@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Dashboard — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="page-sub">A live view of what's on the shelf.</p>
+  </div>
+  <a href="{{ url_for('movement_new') }}" class="btn btn-primary">Log a movement</a>
+</header>
+
+<section class="manifest-strip">
+  <div class="manifest-stat">
+    <span class="manifest-num">{{ total_products }}</span>
+    <span class="manifest-label">SKUs tracked</span>
+  </div>
+  <div class="manifest-stat">
+    <span class="manifest-num">{{ total_units }}</span>
+    <span class="manifest-label">Units on hand</span>
+  </div>
+  <a href="{{ url_for('products', stock='low') }}" class="manifest-stat manifest-stat-link">
+    <span class="manifest-num {{ 'num-warn' if low_stock }}">{{ low_stock|length }}</span>
+    <span class="manifest-label">Low stock</span>
+  </a>
+  <a href="{{ url_for('products', stock='out') }}" class="manifest-stat manifest-stat-link">
+    <span class="manifest-num {{ 'num-crit' if out_of_stock }}">{{ out_of_stock|length }}</span>
+    <span class="manifest-label">Out of stock</span>
+  </a>
+</section>
+
+<section class="split">
+  <div class="panel" id="attention">
+    <div class="panel-head">
+      <h2>Needs attention</h2>
+    </div>
+    {% if needs_attention %}
+    <table class="ledger">
+      <thead>
+        <tr><th>SKU</th><th>Product</th><th class="num">Stock</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in needs_attention %}
+        <tr>
+          <td class="mono">{{ p.sku }}</td>
+          <td>{{ p.name }}</td>
+          <td class="num mono">{{ p.current_stock }}</td>
+          <td>{{ m.stock_stamp(p.current_stock, p.reorder_level) }}</td>
+          <td class="row-action"><a href="{{ url_for('movement_new', product_id=p.id) }}">Log movement</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Everything's above its reorder point. Nothing needs attention right now.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Recent activity</h2>
+      <a href="{{ url_for('movements') }}" class="panel-link">View all</a>
+    </div>
+    {% if recent %}
+    <table class="ledger">
+      <thead>
+        <tr><th>When</th><th>Product</th><th>Type</th><th class="num">Qty</th><th>By</th></tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td class="mono muted">{{ r.created_at }}</td>
+          <td>{{ r.product_name }}</td>
+          <td>{{ m.type_tag(r.type) }}</td>
+          <td class="num">{{ m.signed_qty(r.type, r.quantity) }}</td>
+          <td class="muted">{{ r.user_name_snapshot }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">No movements logged yet. Once you log received, shipped, or returned stock, it will show up here.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

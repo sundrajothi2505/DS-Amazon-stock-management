@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Add employee — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Add employee</h1>
+    <p class="page-sub">Give them a username and a starting password — they can change it after logging in.</p>
+  </div>
+</header>
+
+<form method="post" class="form-panel stack">
+  <div class="form-row">
+    <label>
+      <span>Full name</span>
+      <input type="text" name="full_name" value="{{ form.full_name if form else '' }}" required autofocus>
+    </label>
+    <label>
+      <span>Username</span>
+      <input type="text" name="username" value="{{ form.username if form else '' }}" required placeholder="e.g. priya">
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>
+      <span>Starting password</span>
+      <input type="password" name="password" minlength="6" required>
+      <small>At least 6 characters. They can change it later.</small>
+    </label>
+    <div class="radio-field">
+      <span>Role</span>
+      <label class="radio-row">
+        <input type="radio" name="role" value="staff" {{ 'checked' if not form or form.role == 'staff' }}>
+        <span>Staff — can log movements and manage products</span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="role" value="admin" {{ 'checked' if form and form.role == 'admin' }}>
+        <span>Admin — can also manage employees and delete history</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Add employee</button>
+    <a href="{{ url_for('users') }}" class="btn btn-text">Cancel</a>
+  </div>
+</form>
+{% endblock %}

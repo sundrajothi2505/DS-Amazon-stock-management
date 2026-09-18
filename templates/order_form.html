@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit order' if mode == 'edit' else 'Add order' }} — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ 'Edit order' if mode == 'edit' else 'Add order' }}</h1>
+    <p class="page-sub">This is a reference record for the order itself — it won't change any stock numbers.</p>
+  </div>
+</header>
+
+<form method="post" class="form-panel stack">
+  <div class="form-row">
+    <label>
+      <span>Order date</span>
+      <input type="date" name="order_date" value="{{ order.order_date if order else today }}" required autofocus>
+    </label>
+    <label>
+      <span>Order number</span>
+      <input type="text" name="order_number" value="{{ order.order_number if order else '' }}" required placeholder="e.g. 402-1234567-1234567">
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>
+      <span>Product</span>
+      <div class="searchable-select" data-options-id="product-options-data">
+        <input type="text" class="ss-input" placeholder="Search by SKU or name…" autocomplete="off">
+        <input type="hidden" name="product_id" class="ss-hidden-value"
+               value="{{ order.product_id if order else '' }}">
+        <div class="ss-dropdown" hidden></div>
+      </div>
+      <small>Optional — leave blank and use the description field below if it's not in your catalog yet.</small>
+    </label>
+    <script type="application/json" id="product-options-data">{{ products_js | tojson }}</script>
+    <label>
+      <span>Quantity</span>
+      <input type="number" name="quantity" min="1" step="1" value="{{ order.quantity if order else 1 }}" required>
+    </label>
+  </div>
+
+  <label>
+    <span>Product description <em>(optional)</em></span>
+    <input type="text" name="product_description" value="{{ order.product_description if order else '' }}"
+           placeholder="e.g. Black bump cap — shown if no catalog product is linked above">
+  </label>
+
+  <label>
+    <span>Status</span>
+    <select name="status" required>
+      {% for key, label in order_status_labels.items() %}
+      <option value="{{ key }}" {{ 'selected' if (order and order.status == key) or (not order and key == 'pending') else '' }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    <span>Notes <em>(optional)</em></span>
+    <textarea name="notes" rows="2">{{ order.notes if order else '' }}</textarea>
+  </label>
+
+  {% if mode == 'new' %}
+  <label class="checkbox-row">
+    <input type="checkbox" name="add_another" value="1">
+    <span>Add another order after this</span>
+  </label>
+  {% endif %}
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{ 'Save changes' if mode == 'edit' else 'Add order' }}</button>
+    <a href="{{ url_for('orders') }}" class="btn btn-text">Cancel</a>
+  </div>
+</form>
+{% endblock %}

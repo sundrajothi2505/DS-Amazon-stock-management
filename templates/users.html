@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Employees — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Employees</h1>
+    <p class="page-sub">Everyone with a login can log stock movements. Admins can also manage products, employees, and history.</p>
+  </div>
+  <a href="{{ url_for('user_new') }}" class="btn btn-primary">Add employee</a>
+</header>
+
+<table class="ledger">
+  <thead>
+    <tr><th>Name</th><th>Username</th><th>Role</th><th>Added</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.full_name }}{% if u.id == current_user.id %} <span class="muted">(you)</span>{% endif %}</td>
+      <td class="mono">{{ u.username }}</td>
+      <td><span class="tag {{ 'tag-in' if u.role == 'admin' else 'tag-out' }}">{{ u.role }}</span></td>
+      <td class="mono muted">{{ u.created_at }}</td>
+      <td class="row-action">
+        <button type="button" class="link-action" data-reveal="reset-{{ u.id }}">Reset password</button>
+        {% if u.id != current_user.id %}
+        <form method="post" action="{{ url_for('user_delete', uid=u.id) }}" class="inline-form"
+              data-confirm="Remove the login for {{ u.full_name }}?">
+          <button type="submit" class="link-danger">Delete</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    <tr class="reveal-row" id="reset-{{ u.id }}" hidden>
+      <td colspan="5">
+        <form method="post" action="{{ url_for('user_reset_password', uid=u.id) }}" class="reset-form">
+          <input type="password" name="password" placeholder="New password (min 6 characters)" minlength="6" required>
+          <button type="submit" class="btn btn-ghost btn-small">Set new password</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

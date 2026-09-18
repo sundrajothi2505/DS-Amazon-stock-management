@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Log in — DS Amazon Stock Management{% endblock %}
+{% block content_standalone %}
+<div class="auth-page">
+  <div class="auth-panel">
+    <div class="auth-mark">DS</div>
+    <h1>DS Amazon Stock Management</h1>
+    <p class="auth-sub">Sign in to log stock and see what needs attention.</p>
+    <form method="post" class="stack">
+      <label>
+        <span>Username</span>
+        <input type="text" name="username" autocomplete="username" autofocus required>
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+    <p class="auth-foot">First time here? Ask your admin for a login.</p>
+  </div>
+</div>
+{% endblock %}

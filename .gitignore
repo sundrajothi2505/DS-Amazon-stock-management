@@ -1,0 +1,7 @@
+stock.db
+stock.db-wal
+stock.db-shm
+__pycache__/
+*.pyc
+.venv/
+venv/

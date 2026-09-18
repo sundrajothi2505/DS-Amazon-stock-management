@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Import results — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Import complete</h1>
+    <p class="page-sub">{{ total }} order row{{ '' if total == 1 else 's' }} found across the workbook.</p>
+  </div>
+  <div class="head-actions">
+    <a href="{{ url_for('order_import') }}" class="btn btn-ghost">Import another file</a>
+    <a href="{{ url_for('orders') }}" class="btn btn-primary">Go to Daily orders</a>
+  </div>
+</header>
+
+<section class="manifest-strip">
+  <div class="manifest-stat">
+    <span class="manifest-num">{{ added }}</span>
+    <span class="manifest-label">New orders added</span>
+  </div>
+  <div class="manifest-stat">
+    <span class="manifest-num">{{ skipped_existing }}</span>
+    <span class="manifest-label">Already imported (skipped)</span>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h2>Sheet by sheet</h2></div>
+  <table class="ledger">
+    <thead><tr><th>Sheet</th><th>Result</th></tr></thead>
+    <tbody>
+      {% for name, message in sheet_report %}
+      <tr>
+        <td class="mono">{{ name }}</td>
+        <td class="muted">{{ message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="page-sub" style="margin-top:16px;">Each imported order's original status wording is kept in its Notes field, in case anything needs double-checking.</p>
+{% endblock %}

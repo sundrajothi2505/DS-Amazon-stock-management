@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit product' if mode == 'edit' else 'Add product' }} — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ 'Edit product' if mode == 'edit' else 'Add product' }}</h1>
+    <p class="page-sub">{{ 'Update the catalog details for this SKU.' if mode == 'edit' else 'New products start with a one-time starting stock count — after that, stock only changes through logged movements.' }}</p>
+  </div>
+</header>
+
+<form method="post" class="form-panel stack">
+  <div class="form-row">
+    <label>
+      <span>SKU</span>
+      {% if mode == 'edit' %}
+      <input type="text" value="{{ product.sku }}" disabled>
+      {% else %}
+      <input type="text" name="sku" value="{{ product.sku if product else '' }}" required autofocus placeholder="e.g. BLU-MUG-12OZ">
+      {% endif %}
+    </label>
+    <label>
+      <span>Product name</span>
+      <input type="text" name="name" value="{{ product.name if product else '' }}" required placeholder="e.g. Blue Ceramic Mug, 12oz">
+    </label>
+  </div>
+
+  <div class="form-row">
+    <label>
+      <span>Amazon ASIN <em>(optional)</em></span>
+      <input type="text" name="asin" value="{{ product.asin if product else '' }}" placeholder="e.g. B08XYZ1234">
+    </label>
+    <label>
+      <span>Category <em>(optional)</em></span>
+      <input type="text" name="category" value="{{ product.category if product else '' }}" placeholder="e.g. Kitchen">
+    </label>
+  </div>
+
+  <div class="form-row">
+    {% if mode == 'edit' %}
+    <label>
+      <span>Current stock</span>
+      <input type="text" value="{{ product.current_stock }}" disabled>
+      <small>To change this, <a href="{{ url_for('movement_new', product_id=product.id) }}">log a movement</a> instead — it keeps the history accurate.</small>
+    </label>
+    {% else %}
+    <label>
+      <span>Starting stock</span>
+      <input type="number" name="initial_stock" value="{{ product.initial_stock if product else 0 }}" min="0" step="1">
+      <small>How many units you already have on hand right now.</small>
+    </label>
+    {% endif %}
+    <label>
+      <span>Reorder level</span>
+      <input type="number" name="reorder_level" value="{{ product.reorder_level if product else 5 }}" min="0" step="1">
+      <small>Flag as "low stock" at or below this number.</small>
+    </label>
+  </div>
+
+  <label>
+    <span>Notes <em>(optional)</em></span>
+    <textarea name="notes" rows="3" placeholder="Supplier, lead time, packaging notes...">{{ product.notes if product else '' }}</textarea>
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">{{ 'Save changes' if mode == 'edit' else 'Add product' }}</button>
+    <a href="{{ url_for('products') }}" class="btn btn-text">Cancel</a>
+  </div>
+</form>
+{% endblock %}

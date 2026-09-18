@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}History — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>History</h1>
+    <p class="page-sub">Every movement ever logged, newest first.</p>
+  </div>
+  <a href="{{ url_for('export_movements') }}" class="btn btn-ghost">Export CSV</a>
+</header>
+
+<form method="get" class="filter-bar filter-bar-wide">
+  <div class="searchable-select" data-options-id="product-options-data" style="min-width:260px;">
+    <input type="text" class="ss-input" placeholder="Search by SKU or name…" autocomplete="off">
+    <input type="hidden" name="product_id" class="ss-hidden-value" value="{{ filters.get('product_id', '') }}">
+    <div class="ss-dropdown" hidden></div>
+  </div>
+  <script type="application/json" id="product-options-data">{{ products_js | tojson }}</script>
+  <select name="type">
+    <option value="">All types</option>
+    {% for key, label in type_labels.items() %}
+    <option value="{{ key }}" {{ 'selected' if filters.get('type') == key else '' }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <label class="filter-date">
+    <span>From</span>
+    <input type="date" name="from" value="{{ filters.get('from', '') }}">
+  </label>
+  <label class="filter-date">
+    <span>To</span>
+    <input type="date" name="to" value="{{ filters.get('to', '') }}">
+  </label>
+  <button type="submit" class="btn btn-ghost">Filter</button>
+  {% if filters.get('product_id') or filters.get('type') or filters.get('from') or filters.get('to') %}
+  <a href="{{ url_for('movements') }}" class="btn btn-text">Clear</a>
+  {% endif %}
+</form>
+
+{% if movements %}
+<table class="ledger">
+  <thead>
+    <tr>
+      <th>When</th><th>SKU</th><th>Product</th><th>Type</th><th class="num">Qty</th>
+      <th>Reference</th><th>Notes</th><th>Logged by</th>
+      {% if current_user.role == 'admin' %}<th></th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in movements %}
+    <tr>
+      <td class="mono muted">{{ r.created_at }}</td>
+      <td class="mono">{{ r.sku }}</td>
+      <td>{{ r.product_name }}</td>
+      <td>{{ m.type_tag(r.type) }}</td>
+      <td class="num">{{ m.signed_qty(r.type, r.quantity) }}</td>
+      <td class="muted">{{ r.reference or '—' }}</td>
+      <td class="muted">{{ r.notes or '—' }}</td>
+      <td class="muted">{{ r.user_name_snapshot }}</td>
+      {% if current_user.role == 'admin' %}
+      <td class="row-action">
+        <form method="post" action="{{ url_for('movement_delete', mid=r.id) }}" class="inline-form"
+              data-confirm="Remove this entry? Stock will be recalculated.">
+          <button type="submit" class="link-danger">Delete</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No movements match these filters yet.</p>
+</div>
+{% endif %}
+{% endblock %}

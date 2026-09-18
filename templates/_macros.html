@@ -1,0 +1,39 @@
+{% macro stock_stamp(stock, reorder_level) -%}
+  {% if stock <= 0 -%}
+    <span class="stamp stamp-crit">Out of stock</span>
+  {%- elif stock <= reorder_level -%}
+    <span class="stamp stamp-warn">Low stock</span>
+  {%- else -%}
+    <span class="stamp stamp-safe">In stock</span>
+  {%- endif %}
+{%- endmacro %}
+
+{% macro type_tag(type) -%}
+  {% if type in ['received', 'returned', 'adjustment_in'] -%}
+    <span class="tag tag-in">{{ type_labels[type] }}</span>
+  {%- else -%}
+    <span class="tag tag-out">{{ type_labels[type] }}</span>
+  {%- endif %}
+{%- endmacro %}
+
+{% macro signed_qty(type, quantity) -%}
+  {% if type in ['received', 'returned', 'adjustment_in'] -%}
+    <span class="qty qty-in">+{{ quantity }}</span>
+  {%- else -%}
+    <span class="qty qty-out">&minus;{{ quantity }}</span>
+  {%- endif %}
+{%- endmacro %}
+
+{% macro order_status_stamp(status) -%}
+  {% if status in ['delivered'] -%}
+    <span class="stamp stamp-safe">{{ order_status_labels[status] }}</span>
+  {%- elif status in ['damaged', 'lost'] -%}
+    <span class="stamp stamp-crit">{{ order_status_labels[status] }}</span>
+  {%- elif status in ['pending', 'returned'] -%}
+    <span class="stamp stamp-warn">{{ order_status_labels[status] }}</span>
+  {%- elif status == 'cancelled' -%}
+    <span class="stamp stamp-neutral">{{ order_status_labels[status] }}</span>
+  {%- else -%}
+    <span class="tag tag-out">{{ order_status_labels[status] }}</span>
+  {%- endif %}
+{%- endmacro %}

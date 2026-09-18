@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Daily orders — DS Amazon Stock Management{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Daily orders</h1>
+    <p class="page-sub">A reference log of individual orders and their status. This doesn't change stock by itself — use "Log movement" for that.</p>
+  </div>
+  <div class="head-actions">
+    <a href="{{ url_for('order_import') }}" class="btn btn-ghost">Import from Excel</a>
+    <a href="{{ url_for('export_orders') }}" class="btn btn-ghost">Export CSV</a>
+    <a href="{{ url_for('order_new') }}" class="btn btn-primary">Add order</a>
+  </div>
+</header>
+
+<form method="get" class="filter-bar filter-bar-wide">
+  <select name="status">
+    <option value="">All statuses</option>
+    {% for key, label in order_status_labels.items() %}
+    <option value="{{ key }}" {{ 'selected' if filters.get('status') == key else '' }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <label class="filter-date">
+    <span>From</span>
+    <input type="date" name="from" value="{{ filters.get('from', '') }}">
+  </label>
+  <label class="filter-date">
+    <span>To</span>
+    <input type="date" name="to" value="{{ filters.get('to', '') }}">
+  </label>
+  <button type="submit" class="btn btn-ghost">Filter</button>
+  {% if filters.get('status') or filters.get('from') or filters.get('to') %}
+  <a href="{{ url_for('orders') }}" class="btn btn-text">Clear</a>
+  {% endif %}
+</form>
+
+{% if orders %}
+<table class="ledger">
+  <thead>
+    <tr>
+      <th>Date</th><th>Order number</th><th>SKU</th><th>Product</th><th>ASIN</th>
+      <th class="num">Qty</th><th>Status</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    <tr>
+      <td class="mono muted">{{ o.order_date }}</td>
+      <td class="mono">{{ o.order_number }}</td>
+      <td class="mono">{{ o.sku or '—' }}</td>
+      <td>{{ o.product_name or '(no product info)' }}</td>
+      <td class="mono muted">{{ o.asin or '—' }}</td>
+      <td class="num">{{ o.quantity }}</td>
+      <td>{{ m.order_status_stamp(o.status) }}</td>
+      <td class="row-action">
+        <a href="{{ url_for('order_edit', oid=o.id) }}">Edit</a>
+        {% if o.product_id %}
+        <a href="{{ url_for('movement_new', product_id=o.product_id) }}">Log movement</a>
+        {% endif %}
+        {% if current_user.role == 'admin' %}
+        <form method="post" action="{{ url_for('order_delete', oid=o.id) }}" class="inline-form"
+              data-confirm="Remove order {{ o.order_number }}?">
+          <button type="submit" class="link-danger">Delete</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No orders logged yet for these filters.</p>
+</div>
+{% endif %}
+{% endblock %}
