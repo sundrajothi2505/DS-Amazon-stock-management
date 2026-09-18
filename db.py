@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import psycopg2
+import psycopg2.extras
 from urllib.parse import urlparse
 
 # Global labels required by app.py
@@ -42,18 +43,19 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row
         return conn
 
-# Naming compatibility aliases
-get_db = get_db_connection
+def get_db():
+    conn = get_db_connection()
+    return conn
 
 def close_db(e=None):
     pass
 
 def init_db():
     conn = get_db_connection()
-    cursor = conn.cursor()
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
+        cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -73,6 +75,7 @@ def init_db():
             )
         ''')
     else:
+        cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,15 +101,15 @@ def init_db():
 
 def fetch_products():
     conn = get_db_connection()
-    cursor = conn.cursor()
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute("SELECT id, asin, name, quantity, price, status FROM products ORDER BY name ASC")
         rows = cursor.fetchall()
-        # Convert tuple list to list of dicts to mimic sqlite Row behavior
-        products = [{"id": r[0], "asin": r[1], "name": r[2], "quantity": r[3], "price": r[4], "status": r[5]} for r in rows]
+        products = [dict(row) for row in rows]
     else:
+        cursor = conn.cursor()
         cursor.execute("SELECT * FROM products ORDER BY name ASC")
         products = cursor.fetchall()
         
@@ -116,14 +119,15 @@ def fetch_products():
 
 def fetch_product(product_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
     database_url = os.environ.get('DATABASE_URL')
     
     if database_url:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cursor.execute("SELECT id, asin, name, quantity, price, status FROM products WHERE id = %s", (product_id,))
         row = cursor.fetchone()
-        product = {"id": row[0], "asin": row[1], "name": row[2], "quantity": row[3], "price": row[4], "status": row[5]} if row else None
+        product = dict(row) if row else None
     else:
+        cursor = conn.cursor()
         cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
         product = cursor.fetchone()
         
