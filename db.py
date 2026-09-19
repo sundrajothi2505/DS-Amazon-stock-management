@@ -79,6 +79,11 @@ class PGConnection:
         cur.execute(query.replace("?", "%s"), params)
         return _PGResult(cur)
 
+    def executemany(self, query, seq_of_params):
+        cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.executemany(query.replace("?", "%s"), seq_of_params)
+        return _PGResult(cur)
+
     def executescript(self, script):
         cur = self._conn.cursor()
         cur.execute(script)
@@ -135,6 +140,21 @@ def _migrate_sqlite(conn):
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number)"
         )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_movements_product_type ON movements(product_id, type)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_movements_created_id ON movements(created_at, id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_orders_status_date ON orders(status, order_date, id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_orders_date_id ON orders(order_date, id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_products_name_lower ON products(name COLLATE NOCASE)"
+        )
         conn.commit()
     except sqlite3.IntegrityError:
         # Pre-existing duplicate order numbers from before this was enforced —
@@ -149,6 +169,22 @@ def _migrate_postgres(conn):
     conn.commit()
     cur.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number)"
+    )
+    # Indexes used by the high-traffic list/filter pages and stock calculation.
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_movements_product_type ON movements(product_id, type)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_movements_created_id ON movements(created_at, id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_orders_status_date ON orders(status, order_date, id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_orders_date_id ON orders(order_date, id)"
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_products_name_lower ON products(LOWER(name))"
     )
     conn.commit()
     cur.close()

@@ -275,34 +275,62 @@ def product_import():
         today = datetime.now().strftime("%Y-%m-%d")
         added, updated, adjusted, unchanged = [], [], [], []
 
+        # IMPORTANT PERFORMANCE FIX:
+        # The old importer executed SELECT + stock-calculation queries for
+        # every row. With 124 rows that meant hundreds of database round trips.
+        # Load the catalog and current stock once, then process everything in
+        # memory and commit once at the end.
+        existing_products = fetch_products(conn)
+        by_sku = {p["sku"]: p for p in existing_products}
+
         for row in rows:
-            existing = conn.execute(
-                "SELECT * FROM products WHERE sku = ?", (row["sku"],)
-            ).fetchone()
+            sku = row["sku"]
+            existing = by_sku.get(sku)
+
+            # If the same SKU appears twice in one upload, the first row has
+            # already created it. Do not attempt a movement against a product
+            # whose id is not yet known in this in-memory map.
+            if existing is not None and existing.get("id") is None:
+                unchanged.append(sku)
+                continue
 
             if existing is None:
                 conn.execute(
                     """INSERT INTO products (sku, name, asin, category, initial_stock, reorder_level, notes)
                        VALUES (?, ?, ?, '', ?, 5, ?)""",
-                    (row["sku"], row["name"] or row["sku"], row["asin"],
+                    (sku, row["name"] or sku, row["asin"],
                      row["quantity"] or 0, f"Imported from report on {today}."),
                 )
-                added.append(row["sku"])
+                added.append(sku)
+
+                # Prevent a duplicate SKU later in the same uploaded file from
+                # being treated as a second new product.
+                by_sku[sku] = {
+                    "id": None,
+                    "sku": sku,
+                    "name": row["name"] or sku,
+                    "asin": row["asin"],
+                    "current_stock": row["quantity"] or 0,
+                }
                 continue
 
             new_name = row["name"] or existing["name"]
             new_asin = row["asin"] or existing["asin"]
-            details_changed = new_name != existing["name"] or new_asin != existing["asin"]
+            details_changed = (
+                new_name != existing["name"] or new_asin != existing["asin"]
+            )
             if details_changed:
                 conn.execute(
                     "UPDATE products SET name=?, asin=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                     (new_name, new_asin, existing["id"]),
                 )
-                updated.append(row["sku"])
+                updated.append(sku)
 
             stock_changed = False
             if row["quantity"] is not None:
-                current_stock = fetch_product(conn, existing["id"])["current_stock"]
+                # Use the stock value loaded above instead of calling
+                # fetch_product(), which performs another aggregate query.
+                current_stock = existing["current_stock"]
                 diff = row["quantity"] - current_stock
                 if diff != 0:
                     mtype = "adjustment_in" if diff > 0 else "adjustment_out"
@@ -315,10 +343,14 @@ def product_import():
                          session["user_id"], session["full_name"]),
                     )
                     stock_changed = True
-                    adjusted.append(row["sku"])
+                    adjusted.append(sku)
+
+                    # Keep the in-memory value correct if the same SKU appears
+                    # more than once in the uploaded file.
+                    existing["current_stock"] = row["quantity"]
 
             if not details_changed and not stock_changed:
-                unchanged.append(row["sku"])
+                unchanged.append(sku)
 
         conn.commit()
         return render_template(
@@ -416,11 +448,11 @@ def movements():
         query += " AND m.type = ?"
         params.append(mtype)
     if date_from:
-        query += " AND substr(m.created_at, 1, 10) >= ?"
-        params.append(date_from)
+        query += " AND m.created_at >= ?"
+        params.append(date_from + " 00:00:00")
     if date_to:
-        query += " AND substr(m.created_at, 1, 10) <= ?"
-        params.append(date_to)
+        query += " AND m.created_at <= ?"
+        params.append(date_to + " 23:59:59")
 
     query += " ORDER BY m.created_at DESC, m.id DESC LIMIT 500"
     rows = conn.execute(query, params).fetchall()
@@ -536,10 +568,10 @@ def orders():
         query += " AND o.status = ?"
         params.append(status)
     if date_from:
-        query += " AND substr(o.order_date, 1, 10) >= ?"
+        query += " AND o.order_date >= ?"
         params.append(date_from)
     if date_to:
-        query += " AND substr(o.order_date, 1, 10) <= ?"
+        query += " AND o.order_date <= ?"
         params.append(date_to)
 
     query += " ORDER BY o.order_date DESC, o.id DESC LIMIT 500"
@@ -700,10 +732,15 @@ def order_import():
             return redirect(url_for("order_import"))
 
         rows, sheet_report = parse_orders_workbook(file.read())
+        if not rows:
+            return render_template(
+                "order_import_result.html",
+                added=0, skipped_existing=0,
+                sheet_report=sheet_report, total=0,
+            )
 
         conn = get_db()
-        added = 0
-        skipped_existing = 0
+
         insert_sql = (
             """INSERT INTO orders
                (order_date, order_number, product_id, product_description, quantity,
@@ -716,22 +753,42 @@ def order_import():
                 status, shipped_date, notes, user_id, user_name_snapshot)
                VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)"""
         )
+
+        # Find already-existing order numbers in chunks, so we can use one
+        # executemany() batch instead of one database round trip per order.
+        order_numbers = list(dict.fromkeys(row["order_number"] for row in rows))
+        existing_numbers = set()
+        for i in range(0, len(order_numbers), 500):
+            chunk = order_numbers[i:i + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            found = conn.execute(
+                f"SELECT order_number FROM orders WHERE order_number IN ({placeholders})",
+                chunk,
+            ).fetchall()
+            existing_numbers.update(r["order_number"] for r in found)
+
+        insert_params = []
+        skipped_existing = 0
         for row in rows:
+            if row["order_number"] in existing_numbers:
+                skipped_existing += 1
+                continue
             notes_parts = []
             if row["status_note"]:
                 notes_parts.append(f"Original status: {row['status_note']}")
             notes_parts.append("Imported from Excel")
-            cur = conn.execute(
-                insert_sql,
-                (row["order_date"], row["order_number"], row["description"], row["quantity"],
-                 row["status"], row["shipped_date"], ". ".join(notes_parts),
-                 session["user_id"], session["full_name"]),
+            insert_params.append(
+                (row["order_date"], row["order_number"], row["description"],
+                 row["quantity"], row["status"], row["shipped_date"],
+                 ". ".join(notes_parts), session["user_id"],
+                 session["full_name"])
             )
-            if cur.rowcount:
-                added += 1
-            else:
-                skipped_existing += 1
+
+        if insert_params:
+            conn.executemany(insert_sql, insert_params)
+
         conn.commit()
+        added = len(insert_params)
 
         return render_template(
             "order_import_result.html",

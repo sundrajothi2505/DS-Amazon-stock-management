@@ -72,3 +72,11 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(order_date);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+
+
+-- Performance indexes used by stock, movement, and order list/import pages.
+CREATE INDEX IF NOT EXISTS idx_movements_product_type ON movements(product_id, type);
+CREATE INDEX IF NOT EXISTS idx_movements_created_id ON movements(created_at, id);
+CREATE INDEX IF NOT EXISTS idx_orders_status_date ON orders(status, order_date, id);
+CREATE INDEX IF NOT EXISTS idx_orders_date_id ON orders(order_date, id);
+CREATE INDEX IF NOT EXISTS idx_products_name_lower ON products(LOWER(name));
